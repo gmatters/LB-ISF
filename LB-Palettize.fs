@@ -17,6 +17,7 @@
             "DEFAULT": 0,
             "LABELS": [
                 "SMB",
+                "Forevents",
                 "46: Tsukimi",
                 "47: Shubun",
                 "49: Soukou",
@@ -39,7 +40,8 @@
                 7,
                 8,
                 9,
-                10
+                10,
+                11
             ]
         },
         {
@@ -220,6 +222,18 @@ void palette_smb(inout vec3 colors[PALETTE_SIZE]) {
   colors[8] = Normalize256(43, 15, 2);  // Black
 }
 
+void palette_forevents(inout vec3 colors[PALETTE_SIZE]) {  // https://www.pinterest.com/pin/164592561374214111/
+  colors[0] = Normalize256(241, 232, 214);  // cream
+  colors[1] = Normalize256(198, 223, 219);  // sky blue
+  colors[3] = Normalize256(241, 200, 195);  // pink
+  colors[2] = Normalize256(203, 191, 165);  // sand
+  colors[4] = Normalize256(210, 183, 116);  // mustard
+  colors[5] = Normalize256(133, 154, 128);  // olive
+  colors[6] = Normalize256(219, 101, 58);   // pumpkin
+  colors[7] = Normalize256(56, 82, 156);    // navy
+  colors[8] = Normalize256(51, 51, 51);     // black
+}
+
 void palette_046(inout vec3 colors[PALETTE_SIZE]) {
   colors[0] = Normalize256(245, 243, 223);  // 2
   colors[1] = Normalize256(234, 230, 192);  // 1
@@ -354,27 +368,30 @@ void palette_black(inout vec3 colors[PALETTE_SIZE]) {
 
 void main() {
   vec3 colors[PALETTE_SIZE];
-  if (palette == 0) {
+  int idx = 0;
+  if (palette == idx) {
      palette_smb(colors);
-  } else if (palette == 1) {
+  } else if (palette == ++idx) {
+     palette_forevents(colors);
+  } else if (palette == ++idx) {
      palette_046(colors);
-  } else if (palette == 2) {
+  } else if (palette == ++idx) {
      palette_047(colors);
-  } else if (palette == 3) {
+  } else if (palette == ++idx) {
      palette_049(colors);
-  } else if (palette == 4) {
+  } else if (palette == ++idx) {
      palette_051(colors);
-  } else if (palette == 5) {
+  } else if (palette == ++idx) {
      palette_052(colors);
-  } else if (palette == 6) {
+  } else if (palette == ++idx) {
      palette_055(colors);
-  } else if (palette == 7) {
+  } else if (palette == ++idx) {
       palette_057(colors);
-  } else if (palette == 8) {
+  } else if (palette == ++idx) {
       palette_073(colors);
-  } else if (palette == 9) {
+  } else if (palette == ++idx) {
       palette_086(colors);
-  } else if (palette == 10) {
+  } else if (palette == ++idx) {
       palette_089(colors);
   } else {
       palette_black(colors);
