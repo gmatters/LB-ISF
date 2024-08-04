@@ -24,6 +24,13 @@
                     "MIN": -1.0,
                     "MAX": 1.0,
                     "DEFAULT": 0.0
+            },
+            {
+                    "NAME": "innerRadius",
+                    "TYPE": "float",
+                    "MIN": 0.02,
+                    "MAX": 1.0,
+                    "DEFAULT": 0.1
             }
     ],
     "PASSES": [
@@ -88,8 +95,9 @@ void main() {
     }
     vec2 z = gl_FragCoord.xy;
     z = (z.xy - RENDERSIZE.xy/2.)/RENDERSIZE.y;
-    float r1 = 0.1, r2 = 1.0,
-        scale = log(r2/r1),angle = atan(scale/(2.0*PI));
+    float r1 = innerRadius;
+    float r2 = 1.0;
+    float scale = log(r2/r1),angle = atan(scale/(2.0*PI));
     // Droste transform here
     z = cLog(z);  // Transform by log: circle becomes vertical line
     z.y -= sTime;  // This part is equivalent to rotating the input image such that down can become up
