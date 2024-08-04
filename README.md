@@ -39,4 +39,6 @@ see also LB-TimeDub below.
 
 ## Misc
 
+**LB-CircleDroste** Circular Droste effect with optional zoom and spin.
+
 **LB-RecordLabel** turns anything into a spinning vinyl record label. 33RPM is still too fast for many things to read, so reduce to taste.
