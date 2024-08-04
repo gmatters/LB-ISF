@@ -16,6 +16,7 @@
             "TYPE": "long",
             "DEFAULT": 0,
             "LABELS": [
+                "SMB",
                 "46: Tsukimi",
                 "47: Shubun",
                 "49: Soukou",
@@ -37,7 +38,8 @@
                 6,
                 7,
                 8,
-                9
+                9,
+                10
             ]
         },
         {
@@ -206,6 +208,18 @@ vec3 Normalize256(int r, int g, int b) {
 }
 
 #define PALETTE_SIZE 9
+void palette_smb(inout vec3 colors[PALETTE_SIZE]) {
+  colors[0] = Normalize256(255, 254, 207);   // Cloud
+  colors[1] = Normalize256(90, 164, 233);  // Light Blue
+  colors[2] = Normalize256(118, 190, 0);  // Light Green
+  colors[3] = Normalize256(219, 147, 20);  // Coin
+  colors[4] = Normalize256(143, 138, 240); // Sky
+  colors[5] = Normalize256(172, 38, 11); // Mario Red
+  colors[6] = Normalize256(0, 128, 1);  // Dark Green
+  colors[7] = Normalize256(136, 65, 0); // Brick
+  colors[8] = Normalize256(43, 15, 2);  // Black
+}
+
 void palette_046(inout vec3 colors[PALETTE_SIZE]) {
   colors[0] = Normalize256(245, 243, 223);  // 2
   colors[1] = Normalize256(234, 230, 192);  // 1
@@ -341,24 +355,26 @@ void palette_black(inout vec3 colors[PALETTE_SIZE]) {
 void main() {
   vec3 colors[PALETTE_SIZE];
   if (palette == 0) {
-     palette_046(colors);
+     palette_smb(colors);
   } else if (palette == 1) {
-     palette_047(colors);
+     palette_046(colors);
   } else if (palette == 2) {
-     palette_049(colors);
+     palette_047(colors);
   } else if (palette == 3) {
-     palette_051(colors);
+     palette_049(colors);
   } else if (palette == 4) {
-     palette_052(colors);
+     palette_051(colors);
   } else if (palette == 5) {
-     palette_055(colors);
+     palette_052(colors);
   } else if (palette == 6) {
-      palette_057(colors);
+     palette_055(colors);
   } else if (palette == 7) {
-      palette_073(colors);
+      palette_057(colors);
   } else if (palette == 8) {
-      palette_086(colors);
+      palette_073(colors);
   } else if (palette == 9) {
+      palette_086(colors);
+  } else if (palette == 10) {
       palette_089(colors);
   } else {
       palette_black(colors);
