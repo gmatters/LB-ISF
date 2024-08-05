@@ -7,9 +7,9 @@ ISF Filters
 
 **LB-Highpass** same for highpass
 
-**LB-Drill**: visual equivalent of small audio loops, with delay specified in seconds. Toggles two frames at exactly the delay specified. To express audio delays smaller than one frame, you can apply "subframe" to multiply the frame contents.
+**LB-Drill** visual equivalent of small audio loops, with delay specified in seconds. Toggles two frames at exactly the delay specified. To express audio delays smaller than one frame, you can apply "subframe" to multiply the frame contents.
 
-**LB-Hold**: visual equivalent of a spectral freeze or quick infinite reverb hold. Freezes a frame and slowly stretches it into abstractness.
+**LB-Hold** visual equivalent of a spectral freeze or quick infinite reverb hold. Freezes a frame and slowly stretches it into abstractness.
 
 see also LB-TimeDub below.
 
@@ -23,7 +23,7 @@ see also LB-TimeDub below.
 
 ## Time
 
-**LB-PosterizeTime** reduces the frame rate by taking occasional input frames and fading between them. Can make anything chill.
+**LB-PosterizeTime** reduces the frame rate by taking occasional input frames, optionally fading between them. Can make anything chill.
 
 **LB-TimeDub** creates a visual feedback loop of an exact and arbitrarily long delay time. It keeps the memory usage constant by using 8 frames to implement the feedback. Feedback times longer than 8 frames will have a reduced frame rate (an 8 second loop with have one frame per second). Designed as match to reggae-style audio delay.
 
