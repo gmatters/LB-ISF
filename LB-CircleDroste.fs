@@ -13,6 +13,7 @@
             },
             {
                     "NAME": "zoomSpeed",
+                    "LABEL": "Zoom Speed",
                     "TYPE": "float",
                     "MIN": -1.0,
                     "MAX": 1.0,
@@ -20,6 +21,7 @@
             },
             {
                     "NAME": "spinSpeed",
+                    "LABEL": "Spin Speed",
                     "TYPE": "float",
                     "MIN": -1.0,
                     "MAX": 1.0,
@@ -27,10 +29,17 @@
             },
             {
                     "NAME": "innerRadius",
+                    "LABEL": "Inner Radius",
                     "TYPE": "float",
                     "MIN": 0.02,
                     "MAX": 1.0,
                     "DEFAULT": 0.1
+            },
+            {
+                    "DEFAULT": false,
+                    "LABEL": "Clockwise",
+                    "NAME": "clockwise",
+                    "TYPE": "bool"
             }
     ],
     "PASSES": [
@@ -90,14 +99,22 @@ void main() {
       sTime +=  TIMEDELTA * lerp(spinSpeed, -1., 1., -5., 5.);
       gl_FragColor.ZTIME = zTime;
       gl_FragColor.STIME = sTime;
-      gl_FragColor.a = 1.0;  // If we don't set alpha on our data pixel, we might be subject to premultiply that corrupts the data in .rgb
+      // If we don't set alpha on our data pixel, we might be subject to
+      // premultiply that corrupts the data in .rgb
+      gl_FragColor.a = 1.0;
       return;
     }
     vec2 z = gl_FragCoord.xy;
     z = (z.xy - RENDERSIZE.xy/2.)/RENDERSIZE.y;
     float r1 = innerRadius;
     float r2 = 1.0;
-    float scale = log(r2/r1),angle = atan(scale/(2.0*PI));
+    float scale = log(r2/r1);
+    float angle = atan(scale/(2.0*PI)); // CCW from integral left edge
+    if (clockwise) {
+      angle = -1. * angle;  // CW from integral left edge
+      // Jos Leys article indicates two alternate variations PI+angle and
+      // PI-angle, I find those to give identical output to angle and -angle
+    }
     // Droste transform here
     z = cLog(z);  // Transform by log: circle becomes vertical line
     z.y -= sTime;  // This part is equivalent to rotating the input image such that down can become up
