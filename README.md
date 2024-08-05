@@ -39,6 +39,8 @@ see also LB-TimeDub below.
 
 ## Misc
 
-**LB-CircleDroste** Circular Droste effect with optional zoom and spin.
+**LB-Circle** Flexible circle wrap with smoothing, cropping, orientation, and scaling options.
+
+**LB-CircleDroste** Circular Droste effect with optional zoom and spin. Add an LB-Circle before it for extra vertigo.
 
 **LB-RecordLabel** turns anything into a spinning vinyl record label. 33RPM is still too fast for many things to read, so reduce to taste.
