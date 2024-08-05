@@ -36,6 +36,14 @@
                     "DEFAULT": 0.1
             },
             {
+                    "NAME": "edgeBlend",
+                    "LABEL": "Edge Blend",
+                    "TYPE": "float",
+                    "MIN": 0.0,
+                    "MAX": 1.0,
+                    "DEFAULT": 0.005
+            },
+            {
                     "DEFAULT": false,
                     "LABEL": "Clockwise",
                     "NAME": "clockwise",
@@ -105,7 +113,7 @@ void main() {
       return;
     }
     vec2 z = gl_FragCoord.xy;
-    z = (z.xy - RENDERSIZE.xy/2.)/RENDERSIZE.y;
+    z = (z.xy - RENDERSIZE.xy/2.)/RENDERSIZE.y;  // Map so that 0 is in center. Assumes y is shorter
     float r1 = innerRadius;
     float r2 = 1.0;
     float scale = log(r2/r1);
@@ -116,14 +124,23 @@ void main() {
       // PI-angle, I find those to give identical output to angle and -angle
     }
     // Droste transform here
-    z = cLog(z);  // Transform by log: circle becomes vertical line
-    z.y -= sTime;  // This part is equivalent to rotating the input image such that down can become up
+    z = cLog(z);  // Transform by log: circle becomes vertical strip
+    z.y -= sTime;  // Vertical shift in log space, equiv to rotating the input image (down can become up)
     z = cDiv(z, cExp(vec2(0,angle))*cos(angle)); // Offsets each copy to turn rings into spiral
-    z.x = mod(z.x-zTime,scale);
+    z.x -= zTime;  // Horizontal shift in log space, equiv to zoom
+    z.x = mod(z.x,scale);  // Tiling
+    vec2 zBlend = z;  // Identify correct source pixel to blend for feathering
+    float blend = 0.0;
+    float feather = edgeBlend * scale;
+    if (z.x > scale - feather) {  // Right edge of log space strip -> outer edge of original circle
+      blend = (z.x - (scale - feather)) / feather;
+      zBlend.x = z.x - scale; // blending pixels are left of strip -> inside inner edge of orig circle
+    }
     z = cExp(z)*r1; // Undo the log transform; vertical lines back to circles
+    zBlend = cExp(zBlend)*r1; // Undo the log transform; vertical lines back to circles
+    // 0.5 + 0.5z maps back to '0 in the corner' normalized coords
+    z = mod(.5+.5*z,1.0);
+    zBlend = mod(.5+.5*zBlend,1.0);
     // Draw output color
-    gl_FragColor = IMG_NORM_PIXEL(inputImage,mod(.5+.5*z,1.0)); 
-    // This code from the original causes round bright and dark overlays. Unclear what the intent was.
-    //z = sin(z*25.);
-    //gl_FragColor = vec4(mix(vec3(z.x*z.y),gl_FragColor.xyz,.85),1.);
+    gl_FragColor = mix(IMG_NORM_PIXEL(inputImage,z), IMG_NORM_PIXEL(inputImage, zBlend), blend);
 }
