@@ -70,6 +70,8 @@
   reference:
   https://www.shadertoy.com/view/Xs3SWj
   https://www.josleys.com/article_show.php?id=82
+  http://roy.red/posts/fractal-droste-images/
+  http://roy.red/posts/infinite-regression/
 */
 
 #define PI 3.14159
