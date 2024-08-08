@@ -18,16 +18,22 @@
             "TYPE": "float"
         },
         {
+            "LABEL": "Edge Blend",
+            "NAME": "blend",
+            "DEFAULT": 0.2,
+            "MIN": 0,
+            "MAX": 1,
+            "TYPE": "float"
+        },
+        {
             "DEFAULT": 0,
             "LABEL": "Blend Mode",
             "LABELS": [
                 "XFade",
-                "Short",
-                "Hard",
                 "Max2",
                 "Max3",
                 "Min",
-                "Over"
+                "Over (source alpha)"
             ],
             "NAME": "_mode",
             "TYPE": "long",
@@ -36,9 +42,7 @@
                 1,
                 2,
                 3,
-                4,
-                5,
-                6
+                4
             ]
         },
         {
@@ -80,12 +84,10 @@
 */
 
 #define MODE_XFADE 0
-#define MODE_SHORT 1
-#define MODE_HARD 2
-#define MODE_MAX2 3
-#define MODE_MAX3 4
-#define MODE_MIN 5
-#define MODE_OVER 6
+#define MODE_MAX2 1
+#define MODE_MAX3 2
+#define MODE_MIN 3
+#define MODE_OVER 4
 
 // TODO: a 'smooth' control which does non-linear radius that expands center area, thus giving it more area in the output to prevent it from disappearing.
 // TODO: see notes in keep for other ideas
@@ -126,29 +128,25 @@ vec4 applyNoEdge(vec4 texel, float percent)
 
 // Determine output pixel for some part of a slice
 // Because each slice has its center rendered as thisSlice, and its edges rendered as otherSlice, the formula needs to be symmetrical
-vec4 compPixelLinear(vec4 thisSliceValue, vec4 prevSliceValue, vec4 nextSliceValue, float percentThroughSlice)
+
+float linearstep( float A, float B, float X )
 {
-    if (percentThroughSlice > 0.5) {
-        return mix(thisSliceValue, nextSliceValue, percentThroughSlice - 0.5);
-    } else {
-        return mix(prevSliceValue, thisSliceValue, percentThroughSlice + 0.5);
-    }
+   float t = ( X - A ) / ( B - A );
+
+   return clamp( t, 0., 1. );
 }
 
-vec4 compPixelShortFade(vec4 thisSliceValue, vec4 prevSliceValue, vec4 nextSliceValue, float percentThroughSlice)
+vec4 compPixelLinearBlend(vec4 thisSliceValue, vec4 prevSliceValue, vec4 nextSliceValue, float percentThroughSlice, float blendAmt)
 {
-    if (percentThroughSlice > 0.9) {
-        return mix(thisSliceValue, nextSliceValue, 5.0 * (percentThroughSlice - 0.9));
-    } else if (percentThroughSlice < 0.1){
-        return mix(prevSliceValue, thisSliceValue, 5.0 * (percentThroughSlice + 0.1));
+    float halfBlend = blendAmt/2.0;
+    if (percentThroughSlice > 1.0 - halfBlend) {
+        return mix(thisSliceValue, nextSliceValue, linearstep(1.0-halfBlend, 1.0+halfBlend, percentThroughSlice));
+    } else if (percentThroughSlice < halfBlend){
+        return mix(prevSliceValue, thisSliceValue, linearstep(-halfBlend, halfBlend, percentThroughSlice));
     }
     return thisSliceValue;
 }
 
-vec4 compPixelHard(vec4 thisSliceValue, vec4 prevSliceValue, vec4 nextSliceValue, float percentThroughSlice)
-{
-    return thisSliceValue;
-}
 
 vec4 compPixelMin(vec4 thisSliceValue, vec4 prevSliceValue, vec4 nextSliceValue, float percentThroughSlice)
 {
@@ -244,20 +242,16 @@ void main()
     vec4 outValue;
     float percentThroughSlice = destRads / radsPerSlice;
 
-    if (mode == MODE_XFADE)
-        outValue = compPixelLinear(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice);
-    else if (mode == MODE_SHORT)
-        outValue = compPixelShortFade(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice);
-    else if (mode == MODE_HARD)
-        outValue = compPixelHard(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice);
-    else if (mode == MODE_MAX2)
+    if (mode == MODE_MAX2)
         outValue = compPixelMax2(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice);
     else if (mode == MODE_MAX3)
         outValue = compPixelMax3(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice);
     else if (mode == MODE_MIN)
         outValue = compPixelMin(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice);
-    else
+    else if (mode == MODE_OVER)
         outValue = compPixelOver(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice);
+    else
+        outValue = compPixelLinearBlend(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice, blend);
 
     gl_FragColor = outValue;
 
