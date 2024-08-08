@@ -33,6 +33,8 @@ see also LB-TimeDub below.
 
 **LB-CircleDroste** Circular Droste effect with zoom, spin, and edge blending options. Add an LB-Circle before it for extra vertigo.
 
+**LB-Collide** Kaleidoscope-style radial mirror with options for sampling location, scaling, and edge blending.
+
 **LB-RecordLabel** turns anything into a spinning vinyl record label. 33RPM is still too fast for many things to read, so reduce to taste.
 
 ## Drawing
