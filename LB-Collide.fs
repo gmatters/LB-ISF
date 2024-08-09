@@ -78,14 +78,16 @@
             "DEFAULT": 0,
             "LABEL": "When you hit the edge of the input image",
             "LABELS": [
+                "Mirror",
                 "Transparent",
-                "Repeat edge pixel"
+                "Smear edge pixel"
             ],
             "NAME": "_out_of_bounds",
             "TYPE": "long",
             "VALUES": [
                 0,
-                1
+                1,
+                2
             ]
         }
     ],
@@ -102,6 +104,10 @@
 #define MODE_MAX3 2
 #define MODE_MIN 3
 #define MODE_OVER 4
+
+#define BOUNDS_MIRROR 0
+#define BOUNDS_TRANSPARENT 1
+#define BOUNDS_SMEAR 2
 
 // TODO: a 'smooth' control which does non-linear radius that expands center area, thus giving it more area in the output to prevent it from disappearing.
 // TODO: see notes in keep for other ideas
@@ -198,14 +204,27 @@ vec4 compPixelOver(vec4 thisSliceValue, vec4 prevSliceValue, vec4 nextSliceValue
     }
 }
 
+// lygia.xyz
+vec2 mirror(in vec2 v) {
+    vec2 f = fract(v);
+    vec2 m = floor(mod(v, 2.));
+    vec2 fm = f * m;
+    return f + m - fm * 2.;
+}
+
 vec4 sampleInput(vec2 sourcePointW) {
-    vec4 thisColor = IMG_PIXEL(inputImage, sourcePointW);
-    if (_out_of_bounds == 0) {
+    if (_out_of_bounds == BOUNDS_MIRROR) {
+      // VDMX shows artifacts, crop out the outer pixel on all sides when mirroring
+      vec2 sourcePointMirrored = mirror(sourcePointW / RENDERSIZE) * (RENDERSIZE-2.) + vec2(1.);
+      return IMG_PIXEL(inputImage, sourcePointMirrored);
+    }
+    if (_out_of_bounds == BOUNDS_TRANSPARENT) {
       if (any(lessThan(sourcePointW, vec2(0., 0.))) || any(greaterThan(sourcePointW, RENDERSIZE))) {
         return vec4(0.);
       }
     }
-    return thisColor;
+    // Default pixel lookup smears edge pixels
+    return IMG_PIXEL(inputImage, sourcePointW);
 }
 
 void main()
