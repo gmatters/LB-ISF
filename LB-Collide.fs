@@ -11,7 +11,7 @@
         },
         {
             "LABEL": "Divisions",
-            "DEFAULT": 4,
+            "DEFAULT": 6,
             "MAX": 16,
             "MIN": 1,
             "NAME": "_divisions",
@@ -48,7 +48,7 @@
         {
             "NAME": "center",
             "TYPE": "point2D",
-            "DEFAULT": [0.5,0.5],
+            "DEFAULT": [0.3,0.5],
             "IDENTITY": [0.5,0.5],
             "MIN": [0,0],
             "MAX": [1,1]
@@ -73,6 +73,20 @@
             "MIN": 0,
             "MAX": 3,
             "DEFAULT": 1
+        },
+        {
+            "DEFAULT": 0,
+            "LABEL": "When you hit the edge of the input image",
+            "LABELS": [
+                "Transparent",
+                "Repeat edge pixel"
+            ],
+            "NAME": "_out_of_bounds",
+            "TYPE": "long",
+            "VALUES": [
+                0,
+                1
+            ]
         }
     ],
     "ISFVSN": "2",
@@ -184,6 +198,15 @@ vec4 compPixelOver(vec4 thisSliceValue, vec4 prevSliceValue, vec4 nextSliceValue
     }
 }
 
+vec4 sampleInput(vec2 sourcePointW) {
+    vec4 thisColor = IMG_PIXEL(inputImage, sourcePointW);
+    if (_out_of_bounds == 0) {
+      if (any(lessThan(sourcePointW, vec2(0., 0.))) || any(greaterThan(sourcePointW, RENDERSIZE))) {
+        return vec4(0.);
+      }
+    }
+    return thisColor;
+}
 
 void main()
 {
@@ -191,7 +214,6 @@ void main()
     vec2 _center = center * RENDERSIZE; // Center in exact pixel coords
 
     int mode = int(_mode);
-    //return sample(src, samplerTransform(src, destCoord()));  // debug: passthrough
     vec2 xyW = gl_FragCoord.xy;  // W variables are working space -> pixel coords
     vec2 centerPointW = RENDERSIZE / 2.0;
     float dW = distance(centerPointW, xyW);
@@ -203,9 +225,6 @@ void main()
 
     float divisions = floor(_divisions);
     float radsPerSlice = 2.0*M_PI/floor(_divisions);
-
-    vec2 sourcePointW; // Which point to use for color
-    sourcePointW = centerPointW;
 
     // Convert cartesian x,y to polar coordinates relative to center.
     float destRads = atan(xyW.y - centerPointW.y, xyW.x - centerPointW.x);
@@ -226,17 +245,19 @@ void main()
     radsNext *= radialScale;
 
     // Convert polar to cartesian
-    sourcePointW.x = cos(radsThis) * destDist;
-    sourcePointW.y = sin(radsThis) * destDist;
+    vec2 sourcePointW = vec2(cos(radsThis) * destDist, sin(radsThis) * destDist);
+    vec2 sourcePointPrev = vec2(cos(radsPrev) * destDist, sin(radsPrev) * destDist);
+    vec2 sourcePointNext = vec2(cos(radsNext) * destDist, sin(radsNext) * destDist);
+
     sourcePointW += sampleSourcePoint;
-    vec2 sourcePointPrev = vec2(cos(radsPrev) * destDist, sin(radsPrev) * destDist) + sampleSourcePoint;
-    vec2 sourcePointNext = vec2(cos(radsNext) * destDist, sin(radsNext) * destDist) + sampleSourcePoint;
+    sourcePointPrev += sampleSourcePoint;
+    sourcePointNext += sampleSourcePoint;
 
     // Get the pixel values for each slice
-    // TODO: only actually use two of these, it would perform better to only look up what we need…
-    vec4 thisSliceValue = IMG_PIXEL(inputImage, sourcePointW);
-    vec4 prevSliceValue = IMG_PIXEL(inputImage, sourcePointPrev);
-    vec4 nextSliceValue = IMG_PIXEL(inputImage, sourcePointNext);
+    // TODO: we don't always use all slices, it would perform better to only calculate what we need
+    vec4 thisSliceValue = sampleInput(sourcePointW);
+    vec4 prevSliceValue = sampleInput(sourcePointPrev);
+    vec4 nextSliceValue = sampleInput(sourcePointNext);
 
     // Composite
     vec4 outValue;
