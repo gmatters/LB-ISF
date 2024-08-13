@@ -212,6 +212,14 @@ vec2 mirror(in vec2 v) {
     return f + m - fm * 2.;
 }
 
+// lygia.xyz
+vec2 cart2polar(in vec2 st) {
+    return vec2(atan(st.y, st.x), length(st));
+}
+vec2 polar2cart(in vec2 polar) {
+    return vec2(cos(polar.x), sin(polar.x)) * polar.y;
+}
+
 vec4 sampleInput(vec2 sourcePointW) {
     if (_out_of_bounds == BOUNDS_MIRROR) {
       // VDMX shows artifacts, crop out the outer pixel on all sides when mirroring
@@ -231,12 +239,9 @@ void main()
 {
 
     vec2 _center = center * RENDERSIZE; // Center in exact pixel coords
-
     int mode = int(_mode);
     vec2 xyW = gl_FragCoord.xy;  // W variables are working space -> pixel coords
     vec2 centerPointW = RENDERSIZE / 2.0;
-    float dW = distance(centerPointW, xyW);
-    vec2 fromCenterW = xyW - centerPointW;  // Vector from center to current point
 
     float angleRads = angle * 2.0*M_PI; // Which direction to sample, scaled 0-1
     float distanceScale = 1.0 / scale;  // Zoom in (helps avoid underflow)... making the scale appear larger requires sampling pixels from a smaller source area
@@ -247,7 +252,7 @@ void main()
 
     // Convert cartesian x,y to polar coordinates relative to center.
     float destRads = atan(xyW.y - centerPointW.y, xyW.x - centerPointW.x);
-    float destDist = dW * distanceScale;
+    float destDist = distance(centerPointW, xyW) * distanceScale;
 
     destRads -= radsPerSlice / 2.0;  // Shifts so slice is centered along X axis of output (rather than starting at it)
     destRads = mod(destRads, radsPerSlice);
@@ -264,9 +269,9 @@ void main()
     radsNext *= radialScale;
 
     // Convert polar to cartesian
-    vec2 sourcePointW = vec2(cos(radsThis) * destDist, sin(radsThis) * destDist);
-    vec2 sourcePointPrev = vec2(cos(radsPrev) * destDist, sin(radsPrev) * destDist);
-    vec2 sourcePointNext = vec2(cos(radsNext) * destDist, sin(radsNext) * destDist);
+    vec2 sourcePointW = polar2cart(vec2(radsThis, destDist));
+    vec2 sourcePointPrev = polar2cart(vec2(radsPrev, destDist));
+    vec2 sourcePointNext = polar2cart(vec2(radsNext, destDist));
 
     sourcePointW += sampleSourcePoint;
     sourcePointPrev += sampleSourcePoint;
@@ -294,6 +299,5 @@ void main()
         outValue = compPixelLinearBlend(thisSliceValue, prevSliceValue, nextSliceValue, percentThroughSlice, blend);
 
     gl_FragColor = outValue;
-
 }
 
