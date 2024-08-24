@@ -66,6 +66,14 @@
             "TYPE": "float"
         },
         {
+            "DEFAULT": 0,
+            "MAX": 1,
+            "MIN": 0,
+            "NAME": "preserveBrightness",
+            "LABEL": "Preserve Brightness",
+            "TYPE": "float"
+        },
+        {
             "NAME": "spreadDontMatch",
             "TYPE": "bool",
             "DEFAULT": false
@@ -201,6 +209,51 @@ float compare(vec3 rgb1, vec3 rgb2) {
     vec3 lab2 = rgb2lab(rgb2);
     return calculate_CIEDE2000(lab1, lab2);
 }
+
+// RGB2HCV
+#define HCV_EPSILON 1e-10
+
+vec3 rgb2hcv(const in vec3 rgb) {
+    vec4 P = (rgb.g < rgb.b) ? vec4(rgb.bg, -1.0, 2.0/3.0) : vec4(rgb.gb, 0.0, -1.0/3.0);
+    vec4 Q = (rgb.r < P.x) ? vec4(P.xyw, rgb.r) : vec4(rgb.r, P.yzx);
+    float C = Q.x - min(Q.w, Q.y);
+    float H = abs((Q.w - Q.y) / (6.0 * C + HCV_EPSILON) + Q.z);
+    return vec3(H, C, Q.x);
+}
+vec4 rgb2hcv(vec4 rgb) {return vec4(rgb2hcv(rgb.rgb), rgb.a);}
+
+// RGB2HSL
+#define HSL_EPSILON 1e-10
+
+vec3 rgb2hsl(const in vec3 rgb) {
+    vec3 HCV = rgb2hcv(rgb);
+    float L = HCV.z - HCV.y * 0.5;
+    float S = HCV.y / (1.0 - abs(L * 2.0 - 1.0) + HSL_EPSILON);
+    return vec3(HCV.x, S, L);
+}
+vec4 rgb2hsl(const in vec4 rgb) { return vec4(rgb2hsl(rgb.xyz),rgb.a);}
+
+// Hue2RGB
+#if !defined(FNC_SATURATE) && !defined(saturate)
+#define FNC_SATURATE
+#define saturate(V) clamp(V, 0.0, 1.0)
+#endif
+
+vec3 hue2rgb(const in float hue) {
+    float R = abs(hue * 6.0 - 3.0) - 1.0;
+    float G = 2.0 - abs(hue * 6.0 - 2.0);
+    float B = 2.0 - abs(hue * 6.0 - 4.0);
+    return saturate(vec3(R,G,B));
+}
+
+// HSL2RGB
+vec3 hsl2rgb(const in vec3 hsl) {
+    vec3 rgb = hue2rgb(hsl.x);
+    float C = (1.0 - abs(2.0 * hsl.z - 1.0)) * hsl.y;
+    return (rgb - 0.5) * C + hsl.z;
+}
+vec4 hsl2rgb(const in vec4 hsl) { return vec4(hsl2rgb(hsl.xyz), hsl.w); }
+
 
 vec3 Normalize256(int r, int g, int b) {
     float r_float = float(r);
@@ -464,6 +517,14 @@ void main() {
     vec3 res = colors[nearest_idx];
     vec3 second_res = colors[second_idx];
     col = mix(res, second_res, blendAmount * 0.5);
+
+    if (preserveBrightness > 0.) {
+      float inputBrightness = rgb2hsl(inTexel.rgb).z;
+      vec3 colAsHsl = rgb2hsl(col);
+      colAsHsl.z = inputBrightness;
+      vec3 colBrightnessMatched = hsl2rgb(colAsHsl);
+      col = mix(col, colBrightnessMatched, preserveBrightness);
+    }
 
   }
 
