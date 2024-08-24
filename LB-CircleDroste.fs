@@ -32,7 +32,7 @@
                     "LABEL": "Inner Radius",
                     "TYPE": "float",
                     "MIN": 0.02,
-                    "MAX": 1.0,
+                    "MAX": 0.99,
                     "DEFAULT": 0.1
             },
             {
@@ -44,9 +44,23 @@
                     "DEFAULT": 0.005
             },
             {
+                    "NAME": "dimCenter",
+                    "LABEL": "Dim Center",
+                    "TYPE": "float",
+                    "MIN": 0.0,
+                    "MAX": 1.0,
+                    "DEFAULT": 0.00
+            },
+            {
                     "DEFAULT": false,
                     "LABEL": "Clockwise",
                     "NAME": "clockwise",
+                    "TYPE": "bool"
+            },
+            {
+                    "DEFAULT": false,
+                    "LABEL": "Debug Wrap",
+                    "NAME": "debugWrap",
                     "TYPE": "bool"
             }
     ],
@@ -99,6 +113,9 @@ void main() {
     vec4 data = getData();
     float zTime = data.ZTIME;
     float sTime = data.STIME;
+    float r1 = innerRadius;
+    float r2 = 1.0;
+    float scale = log(r2/r1);
     if (PASSINDEX == 0) {
       // Data accumulator accumulates 'time' used for zoom and speed.
       // Accumulating 'time' means that the dataBuffer isn't entagled with
@@ -107,6 +124,9 @@ void main() {
       // zoomSpeed and spinSpeed.
       zTime +=  TIMEDELTA * lerp(zoomSpeed, -1., 1., -10., 10.);
       sTime +=  TIMEDELTA * lerp(spinSpeed, -1., 1., -5., 5.);
+      // Keeping values near 0 might prevent float accuracy issues of adding huge numbers then subtracting them again
+      zTime = mod(zTime, scale); // Has no effect on output, but limits range of z.x to stay near 0
+      sTime = mod(sTime, 2.0 * PI); // Has no effect on output, but limits range of z.y to stay near 0
       gl_FragColor.ZTIME = zTime;
       gl_FragColor.STIME = sTime;
       // If we don't set alpha on our data pixel, we might be subject to
@@ -116,9 +136,6 @@ void main() {
     }
     vec2 z = gl_FragCoord.xy;
     z = (z.xy - RENDERSIZE.xy/2.)/RENDERSIZE.y;  // Map so that 0 is in center. Assumes y is shorter
-    float r1 = innerRadius;
-    float r2 = 1.0;
-    float scale = log(r2/r1);
     float angle = atan(scale/(2.0*PI)); // CCW from integral left edge
     if (clockwise) {
       angle = -1. * angle;  // CW from integral left edge
@@ -130,6 +147,30 @@ void main() {
     z.y -= sTime;  // Vertical shift in log space, equiv to rotating the input image (down can become up)
     z = cDiv(z, cExp(vec2(0,angle))*cos(angle)); // Offsets each copy to turn rings into spiral
     z.x -= zTime;  // Horizontal shift in log space, equiv to zoom
+
+    // While we are in log-space, calculate a float measurement of how far
+    // 'down' the spiral this pixel is, with 0 representing the outer edge, 1.0
+    // one wrap in from the outer edge, 1.5 a half turn further than that, etc.
+    // z.x seems to range from -inf to 0 (clockwise), but zoom and twist will impact the range
+    float wrapCount = -1.0 * z.x; // 0 -> infinity but practical visible limit depends on closeness of r1 r2
+    if (dimCenter > 0.0 || debugWrap) {
+      wrapCount = wrapCount / scale; // 0 -> infinity, scaled so that it increases 1.0 by every wrap
+      if (clockwise) { wrapCount += 1.0; } // Empirical
+      wrapCount = floor(wrapCount);  // 0 -> inf as integers aligned with the wrap boundaries
+      wrapCount -= zTime/scale; // Causes each wrap of the spiral to shift as it moves in/out, so that the overall range doesn't drift toward +-infinity
+      // Now that we have a count for turns, we need to add the progress within each turn
+      float wrapProgress = z.y; // Empirically, y ranges from -2PI to 0  (clockwise)
+      wrapProgress /= 2.0 * PI; // range -1 to 0  (clockwise)
+      if (clockwise) { wrapProgress *= -1.0; }
+      if (!clockwise) { wrapProgress += 1.0; } // range 0 to 1
+      wrapCount += wrapProgress; // add in the intra-wrap progress, 0 -> inf smoothly around spiral
+      if (debugWrap) {
+        wrapCount = wrapCount / 5.0;  // visibility hack
+        gl_FragColor = vec4(vec3(wrapCount), 1.0);
+        return;
+      }
+    }
+
     z.x = mod(z.x,scale);  // Tiling
     vec2 zBlend = z;  // Identify correct source pixel to blend for feathering
     float blend = 0.0;
@@ -144,5 +185,17 @@ void main() {
     z = mod(.5+.5*z,1.0);
     zBlend = mod(.5+.5*zBlend,1.0);
     // Draw output color
-    gl_FragColor = mix(IMG_NORM_PIXEL(inputImage,z), IMG_NORM_PIXEL(inputImage, zBlend), blend);
+    vec4 color = IMG_NORM_PIXEL(inputImage,z);
+    vec4 blendColor = IMG_NORM_PIXEL(inputImage, zBlend);
+    if (dimCenter > 0.0) {
+      float beforeFade = 1.0; // The first wrap at full brightness before fadeout starts applying
+      wrapCount = max(wrapCount-beforeFade, 0.0); // Don't let wrap go negative from beforeFade
+      float blendWrapCount = max(wrapCount-1.0, 0.0); // One turn outwards, clamp at 0
+      float brightness = 1.0 - dimCenter * wrapCount;
+      color *= vec4(vec3(brightness), 1.0);
+      float blendBrightness = 1.0 - dimCenter * blendWrapCount;
+      blendColor *= vec4(vec3(blendBrightness), 1.0);
+    }
+
+    gl_FragColor = mix(color, blendColor, blend);
 }
