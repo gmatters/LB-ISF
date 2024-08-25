@@ -96,6 +96,7 @@
   http://roy.red/posts/infinite-regression/
 */
 
+// start lygia.xyz
 #ifndef HCV_EPSILON
 #define HCV_EPSILON 1e-4
 #endif
@@ -171,6 +172,7 @@ vec4 hueShift(in vec4 v, in float a) {
     return vec4(hueShift(v.rgb, a), v.a);
 }
 #endif
+// end lygia.xyz
 
 #define PI 3.14159
 #define EPSILON 1e-8
