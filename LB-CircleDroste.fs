@@ -52,6 +52,14 @@
                     "DEFAULT": 0.00
             },
             {
+                    "NAME": "centerHue",
+                    "LABEL": "Center Hue",
+                    "TYPE": "float",
+                    "MIN": -1.0,
+                    "MAX": 1.0,
+                    "DEFAULT": 0.5
+            },
+            {
                     "DEFAULT": false,
                     "LABEL": "Clockwise",
                     "NAME": "clockwise",
@@ -88,7 +96,84 @@
   http://roy.red/posts/infinite-regression/
 */
 
+#ifndef HCV_EPSILON
+#define HCV_EPSILON 1e-4
+#endif
+
+#ifndef FNC_RGB2HCV
+#define FNC_RGB2HCV
+vec3 rgb2hcv(const in vec3 rgb) {
+    vec4 P = (rgb.g < rgb.b) ? vec4(rgb.bg, -1.0, 2.0/3.0) : vec4(rgb.gb, 0.0, -1.0/3.0);
+    vec4 Q = (rgb.r < P.x) ? vec4(P.xyw, rgb.r) : vec4(rgb.r, P.yzx);
+    float C = Q.x - min(Q.w, Q.y);
+    float H = abs((Q.w - Q.y) / (6.0 * C + HCV_EPSILON) + Q.z);
+    return vec3(H, C, Q.x);
+}
+vec4 rgb2hcv(vec4 rgb) {return vec4(rgb2hcv(rgb.rgb), rgb.a);}
+#endif
+
+#ifndef HSL_EPSILON
+#define HSL_EPSILON 1e-4
+#endif
+
+#ifndef FNC_RGB2HSL
+#define FNC_RGB2HSL
+vec3 rgb2hsl(const in vec3 rgb) {
+    vec3 HCV = rgb2hcv(rgb);
+    float L = HCV.z - HCV.y * 0.5;
+    float S = HCV.y / (1.0 - abs(L * 2.0 - 1.0) + HSL_EPSILON);
+    return vec3(HCV.x, S, L);
+}
+vec4 rgb2hsl(const in vec4 rgb) { return vec4(rgb2hsl(rgb.xyz),rgb.a);}
+#endif
+
+#if !defined(FNC_SATURATE) && !defined(saturate)
+#define FNC_SATURATE
+#define saturate(V) clamp(V, 0.0, 1.0)
+#endif
+
+#ifndef FNC_HUE2RGB
+#define FNC_HUE2RGB
+vec3 hue2rgb(const in float hue) {
+    float R = abs(hue * 6.0 - 3.0) - 1.0;
+    float G = 2.0 - abs(hue * 6.0 - 2.0);
+    float B = 2.0 - abs(hue * 6.0 - 4.0);
+    return saturate(vec3(R,G,B));
+}
+#endif
+
+#ifndef FNC_HSL2RGB
+#define FNC_HSL2RGB
+vec3 hsl2rgb(const in vec3 hsl) {
+    vec3 rgb = hue2rgb(hsl.x);
+    float C = (1.0 - abs(2.0 * hsl.z - 1.0)) * hsl.y;
+    return (rgb - 0.5) * C + hsl.z;
+}
+vec4 hsl2rgb(const in vec4 hsl) { return vec4(hsl2rgb(hsl.xyz), hsl.w); }
+#endif
+
+#define HUESHIFT_AMOUNT
+
+#ifndef FNC_HUESHIFT
+#define FNC_HUESHIFT
+vec3 hueShift( vec3 color, float a){
+    vec3 hsl = rgb2hsl(color);
+#ifndef HUESHIFT_AMOUNT
+    hsl.r = hsl.r * TAU + a;
+    hsl.r = fract(hsl.r / TAU);
+#else
+    hsl.r = mod(hsl.r + a, 1.0);
+#endif
+    return hsl2rgb(hsl);
+}
+
+vec4 hueShift(in vec4 v, in float a) {
+    return vec4(hueShift(v.rgb, a), v.a);
+}
+#endif
+
 #define PI 3.14159
+#define EPSILON 1e-8
 
 #define ZTIME r
 #define STIME g
@@ -153,7 +238,7 @@ void main() {
     // one wrap in from the outer edge, 1.5 a half turn further than that, etc.
     // z.x seems to range from -inf to 0 (clockwise), but zoom and twist will impact the range
     float wrapCount = -1.0 * z.x; // 0 -> infinity but practical visible limit depends on closeness of r1 r2
-    if (dimCenter > 0.0 || debugWrap) {
+    if (dimCenter > 0.0 || abs(centerHue) > EPSILON || debugWrap) {
       wrapCount = wrapCount / scale; // 0 -> infinity, scaled so that it increases 1.0 by every wrap
       if (clockwise) { wrapCount += 1.0; } // Empirical
       wrapCount = floor(wrapCount);  // 0 -> inf as integers aligned with the wrap boundaries
@@ -187,7 +272,7 @@ void main() {
     // Draw output color
     vec4 color = IMG_NORM_PIXEL(inputImage,z);
     vec4 blendColor = IMG_NORM_PIXEL(inputImage, zBlend);
-    if (dimCenter > 0.0) {
+    if (dimCenter > 0.0 || abs(centerHue) > EPSILON) {
       float beforeFade = 1.0; // The first wrap at full brightness before fadeout starts applying
       wrapCount = max(wrapCount-beforeFade, 0.0); // Don't let wrap go negative from beforeFade
       float blendWrapCount = max(wrapCount-1.0, 0.0); // One turn outwards, clamp at 0
@@ -195,6 +280,8 @@ void main() {
       color *= vec4(vec3(brightness), 1.0);
       float blendBrightness = 1.0 - dimCenter * blendWrapCount;
       blendColor *= vec4(vec3(blendBrightness), 1.0);
+      color = hueShift(color, wrapCount * centerHue);
+      blendColor = hueShift(blendColor, blendWrapCount * centerHue);
     }
 
     gl_FragColor = mix(color, blendColor, blend);
