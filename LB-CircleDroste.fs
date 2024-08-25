@@ -44,8 +44,8 @@
                     "DEFAULT": 0.005
             },
             {
-                    "NAME": "dimCenter",
-                    "LABEL": "Dim Center",
+                    "NAME": "centerDim",
+                    "LABEL": "Center Dim",
                     "TYPE": "float",
                     "MIN": 0.0,
                     "MAX": 1.0,
@@ -238,7 +238,7 @@ void main() {
     // one wrap in from the outer edge, 1.5 a half turn further than that, etc.
     // z.x seems to range from -inf to 0 (clockwise), but zoom and twist will impact the range
     float wrapCount = -1.0 * z.x; // 0 -> infinity but practical visible limit depends on closeness of r1 r2
-    if (dimCenter > 0.0 || abs(centerHue) > EPSILON || debugWrap) {
+    if (centerDim > 0.0 || abs(centerHue) > EPSILON || debugWrap) {
       wrapCount = wrapCount / scale; // 0 -> infinity, scaled so that it increases 1.0 by every wrap
       if (clockwise) { wrapCount += 1.0; } // Empirical
       wrapCount = floor(wrapCount);  // 0 -> inf as integers aligned with the wrap boundaries
@@ -272,13 +272,13 @@ void main() {
     // Draw output color
     vec4 color = IMG_NORM_PIXEL(inputImage,z);
     vec4 blendColor = IMG_NORM_PIXEL(inputImage, zBlend);
-    if (dimCenter > 0.0 || abs(centerHue) > EPSILON) {
+    if (centerDim > 0.0 || abs(centerHue) > EPSILON) {
       float beforeFade = 1.0; // The first wrap at full brightness before fadeout starts applying
       wrapCount = max(wrapCount-beforeFade, 0.0); // Don't let wrap go negative from beforeFade
       float blendWrapCount = max(wrapCount-1.0, 0.0); // One turn outwards, clamp at 0
-      float brightness = 1.0 - dimCenter * wrapCount;
+      float brightness = 1.0 - centerDim * wrapCount;
       color *= vec4(vec3(brightness), 1.0);
-      float blendBrightness = 1.0 - dimCenter * blendWrapCount;
+      float blendBrightness = 1.0 - centerDim * blendWrapCount;
       blendColor *= vec4(vec3(blendBrightness), 1.0);
       color = hueShift(color, wrapCount * centerHue);
       blendColor = hueShift(blendColor, blendWrapCount * centerHue);
