@@ -198,7 +198,7 @@ void main() {
       // directly from TIME causes the output to jump around when adjusting
       // zoomSpeed and spinSpeed.
       zTime +=  TIMEDELTA * lerp(zoomSpeed, -1., 1., -10., 10.);
-      sTime +=  TIMEDELTA * lerp(spinSpeed, -1., 1., -5., 5.);
+      sTime +=  TIMEDELTA * lerp(spinSpeed, -1., 1., 5., -5.);
       // Keeping values near 0 might prevent float accuracy issues of adding huge numbers then subtracting them again
       zTime = mod(zTime, scale); // Has no effect on output, but limits range of z.x to stay near 0
       sTime = mod(sTime, 2.0 * PI); // Has no effect on output, but limits range of z.y to stay near 0
