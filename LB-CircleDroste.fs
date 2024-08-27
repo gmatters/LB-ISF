@@ -96,83 +96,70 @@
   http://roy.red/posts/infinite-regression/
 */
 
-// start lygia.xyz
-#ifndef HCV_EPSILON
-#define HCV_EPSILON 1e-4
+// lygia.xyz
+/*
+contributors: Bjorn Ottosson (@bjornornorn)
+description: |
+    Linear rgb to OKLab https://bottosson.github.io/posts/oklab/
+use: <vec3\vec4> rgb2oklab(<vec3|vec4> rgb)
+license: 
+    - MIT License (MIT) Copyright (c) 2020 Björn Ottosson
+*/
+#ifndef MAT_RGB2OKLAB
+#define MAT_RGB2OKLAB
+const mat3 RGB2OKLAB_A = mat3(
+    0.2104542553, 1.9779984951, 0.0259040371,
+    0.7936177850, -2.4285922050, 0.7827717662,
+    -0.0040720468, 0.4505937099, -0.8086757660);
+
+const mat3 RGB2OKLAB_B = mat3(
+    0.4122214708, 0.2119034982, 0.0883024619,
+    0.5363325363, 0.6806995451, 0.2817188376,
+    0.0514459929, 0.1073969566, 0.6299787005);
 #endif
 
-#ifndef FNC_RGB2HCV
-#define FNC_RGB2HCV
-vec3 rgb2hcv(const in vec3 rgb) {
-    vec4 P = (rgb.g < rgb.b) ? vec4(rgb.bg, -1.0, 2.0/3.0) : vec4(rgb.gb, 0.0, -1.0/3.0);
-    vec4 Q = (rgb.r < P.x) ? vec4(P.xyw, rgb.r) : vec4(rgb.r, P.yzx);
-    float C = Q.x - min(Q.w, Q.y);
-    float H = abs((Q.w - Q.y) / (6.0 * C + HCV_EPSILON) + Q.z);
-    return vec3(H, C, Q.x);
+#ifndef FNC_RGB2OKLAB
+#define FNC_RGB2OKLAB
+vec3 rgb2oklab(const in vec3 rgb) {
+    vec3 lms = RGB2OKLAB_B * rgb;
+    return RGB2OKLAB_A * (sign(lms)*pow(abs(lms), vec3(0.3333333333333)));
+
 }
-vec4 rgb2hcv(vec4 rgb) {return vec4(rgb2hcv(rgb.rgb), rgb.a);}
+vec4 rgb2oklab(const in vec4 rgb) { return vec4(rgb2oklab(rgb.rgb), rgb.a); }
 #endif
 
-#ifndef HSL_EPSILON
-#define HSL_EPSILON 1e-4
+#ifndef MAT_OKLAB2RGB
+#define MAT_OKLAB2RGB
+const mat3 OKLAB2RGB_A = mat3(
+    1.0,           1.0,           1.0,
+    0.3963377774, -0.1055613458, -0.0894841775,
+    0.2158037573, -0.0638541728, -1.2914855480);
+
+const mat3 OKLAB2RGB_B = mat3(
+    4.0767416621, -1.2684380046, -0.0041960863,
+    -3.3077115913, 2.6097574011, -0.7034186147,
+    0.2309699292, -0.3413193965, 1.7076147010);
 #endif
 
-#ifndef FNC_RGB2HSL
-#define FNC_RGB2HSL
-vec3 rgb2hsl(const in vec3 rgb) {
-    vec3 HCV = rgb2hcv(rgb);
-    float L = HCV.z - HCV.y * 0.5;
-    float S = HCV.y / (1.0 - abs(L * 2.0 - 1.0) + HSL_EPSILON);
-    return vec3(HCV.x, S, L);
+#ifndef FNC_OKLAB2RGB
+#define FNC_OKLAB2RGB
+vec3 oklab2rgb(const in vec3 oklab) {
+    vec3 lms = OKLAB2RGB_A * oklab;
+    return OKLAB2RGB_B * (lms * lms * lms);
 }
-vec4 rgb2hsl(const in vec4 rgb) { return vec4(rgb2hsl(rgb.xyz),rgb.a);}
+vec4 oklab2rgb(const in vec4 oklab) { return vec4(oklab2rgb(oklab.xyz), oklab.a); }
 #endif
+// lygia.xyz
 
-#if !defined(FNC_SATURATE) && !defined(saturate)
-#define FNC_SATURATE
-#define saturate(V) clamp(V, 0.0, 1.0)
-#endif
-
-#ifndef FNC_HUE2RGB
-#define FNC_HUE2RGB
-vec3 hue2rgb(const in float hue) {
-    float R = abs(hue * 6.0 - 3.0) - 1.0;
-    float G = 2.0 - abs(hue * 6.0 - 2.0);
-    float B = 2.0 - abs(hue * 6.0 - 4.0);
-    return saturate(vec3(R,G,B));
+vec4 humanShiftOK(const in vec4 rgba, const in float normAngle) {
+  vec3 okLab = rgb2oklab(rgba.rgb);
+  float C = sqrt(dot(okLab.yz, okLab.yz));
+  float h = atan(okLab.z, okLab.y);
+  h += normAngle * 2. * 3.14159;
+  okLab.y = C*cos(h);
+  okLab.z = C*sin(h);
+  return vec4(oklab2rgb(okLab), rgba.a);
 }
-#endif
-
-#ifndef FNC_HSL2RGB
-#define FNC_HSL2RGB
-vec3 hsl2rgb(const in vec3 hsl) {
-    vec3 rgb = hue2rgb(hsl.x);
-    float C = (1.0 - abs(2.0 * hsl.z - 1.0)) * hsl.y;
-    return (rgb - 0.5) * C + hsl.z;
-}
-vec4 hsl2rgb(const in vec4 hsl) { return vec4(hsl2rgb(hsl.xyz), hsl.w); }
-#endif
-
-#define HUESHIFT_AMOUNT
-
-#ifndef FNC_HUESHIFT
-#define FNC_HUESHIFT
-vec3 hueShift( vec3 color, float a){
-    vec3 hsl = rgb2hsl(color);
-#ifndef HUESHIFT_AMOUNT
-    hsl.r = hsl.r * TAU + a;
-    hsl.r = fract(hsl.r / TAU);
-#else
-    hsl.r = mod(hsl.r + a, 1.0);
-#endif
-    return hsl2rgb(hsl);
-}
-
-vec4 hueShift(in vec4 v, in float a) {
-    return vec4(hueShift(v.rgb, a), v.a);
-}
-#endif
-// end lygia.xyz
 
 #define PI 3.14159
 #define EPSILON 1e-8
@@ -203,6 +190,7 @@ void main() {
     float r1 = innerRadius;
     float r2 = 1.0;
     float scale = log(r2/r1);
+
     if (PASSINDEX == 0) {
       // Data accumulator accumulates 'time' used for zoom and speed.
       // Accumulating 'time' means that the dataBuffer isn't entagled with
@@ -282,8 +270,8 @@ void main() {
       color *= vec4(vec3(brightness), 1.0);
       float blendBrightness = 1.0 - centerDim * blendWrapCount;
       blendColor *= vec4(vec3(blendBrightness), 1.0);
-      color = hueShift(color, wrapCount * centerHue);
-      blendColor = hueShift(blendColor, blendWrapCount * centerHue);
+      color = humanShiftOK(color, wrapCount * centerHue);
+      blendColor = humanShiftOK(blendColor, blendWrapCount * centerHue);
     }
 
     gl_FragColor = mix(color, blendColor, blend);
