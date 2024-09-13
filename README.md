@@ -21,6 +21,8 @@ see also LB-TimeDub below.
 
 **LB-Palettize** allows you to specify, in the filter code, a set of 9 colors. Input colors will be posterized to the perceptually nearest palette color. There are some options to force different color mappings in order to find a useful output.
 
+**LB-Print** applies a retro printed look, with CMYK registration offset, paper texture, paper bleed, and optional jitter.
+
 ## Time
 
 **LB-PosterizeTime** reduces the frame rate by taking occasional input frames, optionally fading between them. Can make anything chill.
