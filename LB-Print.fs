@@ -35,6 +35,7 @@
 // TODO: express amount in % of larger/smaller dimension instead of directly in pixels, so that the result will be similar for any resolution
 // TODO: allow non-subtle results at high levels
 // TODO: jitter posterize time
+// TODO: consider snoise3 to get 3 dimensions of noise, use different combinations of dimensions to get rand for each channel etc
 
 vec4 sampleInputW(vec2 sourcePointW) {  // 'Working' means XY with 0,0 at corner
     return IMG_PIXEL(inputImage, sourcePointW);
@@ -157,6 +158,22 @@ vec2 random2(vec2 p) {
 }
 // END: lygia.xyz
 
+// Start: ChatGPT
+// Function to generate 2D Perlin noise
+float noise(vec2 p) {
+    // Simplex noise or Perlin noise can be used here
+    // For the sake of this example, let's use a basic noise function
+    // You can replace this with a more complex noise function for better results
+    return fract(sin(dot(p * 12.9898, vec2(78.233, 151.718))) * 43758.5453);
+}
+
+// Function to create a fiber effect
+float fiber(vec2 uv) {
+    float n = snoise(uv * 13.37); // Scale the noise
+    return smoothstep(0.55, 0.99, n); // Control the fiber appearance
+}
+// End: ChatGPT
+
 float lerp(float val, float in_a, float in_b, float out_a, float out_b) {
   return ((val - in_a) / (in_b - in_a)) * (out_b - out_a) + out_a;
 }
@@ -188,8 +205,15 @@ void main() {
   cmyk.x = rgb2cmyk(pixelC.rgb).x * pixelC.a;
   cmyk.y = rgb2cmyk(pixelM.rgb).y * pixelM.a;
   cmyk.z = rgb2cmyk(pixelY.rgb).z * pixelY.a;
-  cmyk.w = (rgb2cmyk(pixelK.rgb).w - randomOffset.x*min(0.3*level, 0.15)) * pixelK.a;
+  float paperDim = smoothstep(0.5, 1.0, randomOffset.x)*0.35 + smoothstep(0.0, 1.0, randomOffset.y)*0.10;
+  paperDim *= level;
+  cmyk.w = (rgb2cmyk(pixelK.rgb).w - paperDim) * pixelK.a;
   float thisAlpha = max(max(pixelC.a, pixelM.a), max(pixelY.a, pixelK.a));
 
-  gl_FragColor = vec4(cmyk2rgb(cmyk), thisAlpha);
+  vec3 rgb = cmyk2rgb(cmyk);
+  rgb -= 0.1 * level * fiber(xyW/* + jitterPos*level*/);
+  float rgbDim = 1.0 - 0.1 * smoothstep(0.6, 1.0, randomOffset.y);
+  rgb *= rgbDim;
+
+  gl_FragColor = vec4(rgb, thisAlpha);
 }
