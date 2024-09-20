@@ -28,6 +28,14 @@
 	]
 }*/
 
+// TODO: scale noise with resolution so that it looks similar at 480 or 4k
+// TODO: spatial distortion on each CMYK channel, rather than just input
+// TODO: plate noise for each color (spots, scratches)
+// TODO: look up some gradient, noise or grain based on color of input, meaning that fields of solid color will have a visually contiguous texture applied that breaks at the color boundaries
+// TODO: express amount in % of larger/smaller dimension instead of directly in pixels, so that the result will be similar for any resolution
+// TODO: allow non-subtle results at high levels
+// TODO: jitter posterize time
+
 vec4 sampleInputW(vec2 sourcePointW) {  // 'Working' means XY with 0,0 at corner
     return IMG_PIXEL(inputImage, sourcePointW);
 }
@@ -163,13 +171,15 @@ void main() {
   vec2 randomOffset = snoise2(xyW/5.);  // Simplex noise
   
   float randomOffsetScale = min(3. * level, 1.);
-  float jitterTime = floor(TIME * lerp(6., 12., jitter));  // Increments 6 times a sec
+  float fps = 6. + 6. * step(0.5, jitter);  // Update 6 or 12 fps
+  float jitterTime = floor(TIME * fps) / fps;
 
+  vec2 jitterPos = (jitter * 5. * random2(jitterTime)) * level;
   float colorOffsetLevel = max(2. * (level-0.5), 0.);
-  vec2 cOffset = vec2(-3., 1.) * colorOffsetLevel;
-  vec2 mOffset = vec2(5., 0.) * colorOffsetLevel * sin(TIME);
-  vec2 yOffset = vec2(0., 5.) * colorOffsetLevel;
-  vec2 kOffset = (vec2(-10., -10.) + jitter * 5. * random2(jitterTime)) * level;
+  vec2 cOffset = vec2(-3., -1.) * colorOffsetLevel;
+  vec2 mOffset = vec2(5., 1.) * colorOffsetLevel * mix(1.0, sin(jitterTime), jitter);
+  vec2 yOffset = vec2(1., 5.) * colorOffsetLevel;
+  vec2 kOffset = (vec2(-0., -2.) + jitterPos) * level;
   vec4 pixelC = sampleInputBoundedW(xyW + cOffset + randomOffset * randomOffsetScale);
   vec4 pixelM = sampleInputBoundedW(xyW + mOffset + randomOffset * randomOffsetScale);
   vec4 pixelY = sampleInputBoundedW(xyW + yOffset + randomOffset * randomOffsetScale);
