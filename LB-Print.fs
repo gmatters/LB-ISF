@@ -184,19 +184,23 @@ float lerp(float val, float out_a, float out_b) {
 
 void main() {
   vec2 xyW = gl_FragCoord.xy;  // W variables are working space -> pixel coords
+  float resolutionScale = RENDERSIZE.y/480.; // Normalize vs render resolution
 
-  vec2 randomOffset = snoise2(xyW/5.);  // Simplex noise
-  
-  float randomOffsetScale = min(3. * level, 1.);
   float fps = 6. + 6. * step(0.5, jitter);  // Update 6 or 12 fps
   float jitterTime = floor(TIME * fps) / fps;
 
-  vec2 jitterPos = (jitter * 5. * random2(jitterTime)) * level;
-  float colorOffsetLevel = max(2. * (level-0.5), 0.);
+  float colorOffsetLevel = max(2. * (level-0.5), 0.) * resolutionScale;
+  float blackOffsetLevel = level * resolutionScale;
+  vec2 randomOffset = snoise2(xyW / (resolutionScale*5.));  // Make the edges wiggly
+  float randomOffsetScale = min(3. * level, 1.) * resolutionScale;  // resolutionScale is also used to scale the noise itself, but if we don't include it here also the wiggles get lost at large resolutions
+  vec2 jitterPos = (jitter * 5. * random2(jitterTime)) * level;  // resolutionScale is multiplied in via blackOffsetLevel
+  float rgbDimLevel = level;
+  float paperDimLevel = level;
+
   vec2 cOffset = vec2(-3., -1.) * colorOffsetLevel;
   vec2 mOffset = vec2(5., 1.) * colorOffsetLevel * mix(1.0, sin(jitterTime), jitter);
   vec2 yOffset = vec2(1., 5.) * colorOffsetLevel;
-  vec2 kOffset = (vec2(-0., -2.) + jitterPos) * level;
+  vec2 kOffset = (vec2(-0., -2.) + jitterPos) * blackOffsetLevel;
   vec4 pixelC = sampleInputBoundedW(xyW + cOffset + randomOffset * randomOffsetScale);
   vec4 pixelM = sampleInputBoundedW(xyW + mOffset + randomOffset * randomOffsetScale);
   vec4 pixelY = sampleInputBoundedW(xyW + yOffset + randomOffset * randomOffsetScale);
@@ -206,12 +210,12 @@ void main() {
   cmyk.y = rgb2cmyk(pixelM.rgb).y * pixelM.a;
   cmyk.z = rgb2cmyk(pixelY.rgb).z * pixelY.a;
   float paperDim = smoothstep(0.5, 1.0, randomOffset.x)*0.35 + smoothstep(0.0, 1.0, randomOffset.y)*0.10;
-  paperDim *= level;
+  paperDim *= paperDimLevel;
   cmyk.w = (rgb2cmyk(pixelK.rgb).w - paperDim) * pixelK.a;
   float thisAlpha = max(max(pixelC.a, pixelM.a), max(pixelY.a, pixelK.a));
 
   vec3 rgb = cmyk2rgb(cmyk);
-  rgb -= 0.1 * level * fiber(xyW/* + jitterPos*level*/);
+  rgb -= 0.1 * rgbDimLevel * fiber(xyW);
   float rgbDim = 1.0 - 0.1 * smoothstep(0.6, 1.0, randomOffset.y);
   rgb *= rgbDim;
 
