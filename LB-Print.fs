@@ -28,14 +28,13 @@
 	]
 }*/
 
-// TODO: scale noise with resolution so that it looks similar at 480 or 4k
 // TODO: spatial distortion on each CMYK channel, rather than just input
 // TODO: plate noise for each color (spots, scratches)
 // TODO: look up some gradient, noise or grain based on color of input, meaning that fields of solid color will have a visually contiguous texture applied that breaks at the color boundaries
-// TODO: express amount in % of larger/smaller dimension instead of directly in pixels, so that the result will be similar for any resolution
-// TODO: allow non-subtle results at high levels
-// TODO: jitter posterize time
 // TODO: consider snoise3 to get 3 dimensions of noise, use different combinations of dimensions to get rand for each channel etc
+// TODO: a lot of the paper texture noise is invariant and could be cached in a persistent texture to boost performance
+// TODO: reliance on black plate noise to simulate paper texture causes hue distortion, e.g. dark green of pkds mushroom loses lots of black and the cyan shows through more causes it to look bluer. Should probably use rbg lighten to simulate paper texture, and different plate noise for black.
+// TODO: plate streaks should be calculated "through" randomoffset, so it gets the paper texture wiggle and doesn't look so digital
 
 vec4 sampleInputW(vec2 sourcePointW) {  // 'Working' means XY with 0,0 at corner
     return IMG_PIXEL(inputImage, sourcePointW);
@@ -169,7 +168,7 @@ float noise(vec2 p) {
 
 // Function to create a fiber effect
 float fiber(vec2 uv) {
-    float n = snoise(uv * 13.37); // Scale the noise
+    float n = snoise(uv * 130.37); // Scale the noise
     return smoothstep(0.55, 0.99, n); // Control the fiber appearance
 }
 // End: ChatGPT
@@ -189,13 +188,17 @@ void main() {
   float fps = 6. + 6. * step(0.5, jitter);  // Update 6 or 12 fps
   float jitterTime = floor(TIME * fps) / fps;
 
-  float colorOffsetLevel = max(2. * (level-0.5), 0.) * resolutionScale;
-  float blackOffsetLevel = level * resolutionScale;
+  float colorOffsetLevel = resolutionScale * smoothstep(0.3, 1.0, level);
+  float blackOffsetLevel = resolutionScale * level;
+  float jitterOffsetLevel = level;
+  float randomOffsetScale = resolutionScale * level; // resolutionScale is also used to scale the noise itself, but if we don't include it here also the wiggles get lost at large resolutions
+  float rgbDimLevel = level;  // Bigger specks
+  float rgbFiberDimLevel = smoothstep(0., 0.8, level);  // Smaller texture at limit of resolution
+  float paperBrightLevel = level * level; // Weak spots in ink / highlights from paper texture
+  float mPlateNoiseLevel = level;  // Vertical streaks
+
+  vec2 jitterPos = (jitter * 5. * random2(jitterTime)) * jitterOffsetLevel;  // resolutionScale is multiplied in via blackOffsetLevel
   vec2 randomOffset = snoise2(xyW / (resolutionScale*5.));  // Make the edges wiggly
-  float randomOffsetScale = min(3. * level, 1.) * resolutionScale;  // resolutionScale is also used to scale the noise itself, but if we don't include it here also the wiggles get lost at large resolutions
-  vec2 jitterPos = (jitter * 5. * random2(jitterTime)) * level;  // resolutionScale is multiplied in via blackOffsetLevel
-  float rgbDimLevel = level;
-  float paperDimLevel = level;
 
   vec2 cOffset = vec2(-3., -1.) * colorOffsetLevel;
   vec2 mOffset = vec2(5., 1.) * colorOffsetLevel * mix(1.0, sin(jitterTime), jitter);
@@ -205,18 +208,22 @@ void main() {
   vec4 pixelM = sampleInputBoundedW(xyW + mOffset + randomOffset * randomOffsetScale);
   vec4 pixelY = sampleInputBoundedW(xyW + yOffset + randomOffset * randomOffsetScale);
   vec4 pixelK = sampleInputBoundedW(xyW + kOffset + randomOffset * randomOffsetScale);
+  float thisAlpha = max(max(pixelC.a, pixelM.a), max(pixelY.a, pixelK.a));
+
   vec4 cmyk;
   cmyk.x = rgb2cmyk(pixelC.rgb).x * pixelC.a;
   cmyk.y = rgb2cmyk(pixelM.rgb).y * pixelM.a;
   cmyk.z = rgb2cmyk(pixelY.rgb).z * pixelY.a;
   float paperDim = smoothstep(0.5, 1.0, randomOffset.x)*0.35 + smoothstep(0.0, 1.0, randomOffset.y)*0.10;
-  paperDim *= paperDimLevel;
+  paperDim *= paperBrightLevel;
   cmyk.w = (rgb2cmyk(pixelK.rgb).w - paperDim) * pixelK.a;
-  float thisAlpha = max(max(pixelC.a, pixelM.a), max(pixelY.a, pixelK.a));
+
+  float mPlateNoise = noise(vec2(xyW.x) * 0.01);
+  cmyk.y *= mix(1.0, smoothstep(0.0, 0.05*mPlateNoiseLevel, mPlateNoise), mPlateNoiseLevel);
 
   vec3 rgb = cmyk2rgb(cmyk);
-  rgb -= 0.1 * rgbDimLevel * fiber(xyW);
-  float rgbDim = 1.0 - 0.1 * smoothstep(0.6, 1.0, randomOffset.y);
+  rgb -= 0.5 * rgbFiberDimLevel * fiber(xyW / resolutionScale);
+  float rgbDim = 1.0 - 0.5 * smoothstep(1.0-0.4*rgbDimLevel, 1.0, randomOffset.y)*rgbDimLevel;
   rgb *= rgbDim;
 
   gl_FragColor = vec4(rgb, thisAlpha);
