@@ -348,7 +348,7 @@ vec3 scratch(vec2 xyW, vec2 whW, float resolutionScale) {
   }
   tilt.x *= tiltScale * random24Centered;
   // Sample noise to generate lines
-  float noise = fbm(vec3((xyW + jitter + tilt)/(resolutionScale * vec2(25., 20000.)), TIME / 3.), 2);
+  float noise = fbm(vec3((xyW + jitter + tilt)/(resolutionScale * vec2(25., 20000.)), time24 / 72.), 2);
   noise = 1.51 - noise;  // 1.55 is very few scratches, 1.4 is so many that the illusion falls apart
   noise = clamp(noise, 0.8, 1.);  // Prevent oversaturation, also limit depth of scratches
   vec3 rv = vec3(noise);
@@ -376,7 +376,7 @@ vec3 leak(vec2 xyW, float resolutionScale) {
   float time = TIME * 5.;  // 5hz
   vec3 colorA = random3(floor(time));
   vec3 colorB = random3(floor(time)+1.);
-  vec3 color = mix(colorA, colorB, fract(time));
+  vec3 color = mix(colorA, colorB, fract(time));  // The color of the tone drifts over time
   vec3 colorDark = vec3(0.19, 0.23, 0.29);
   rv =  noise < 0.25 ? mix(vec3(0.), colorDark, noise * 4.) : mix (colorDark, color, (noise - 0.25)*4.);
   float noise2 = 0.3 + 0.8 * fbm(vec3(xyW/(resolutionScale480*vec2(1500., 3000.)), TIME/4.), 1);
@@ -386,13 +386,23 @@ vec3 leak(vec2 xyW, float resolutionScale) {
 
 vec4 damage(vec2 xyW, vec2 whW, float resolutionScale) {
   float time24 = floor(TIME * 24.);
-  float seed = TIME * 30.;  // Crank up time to simulate random  // samples: 750, 1050
+  float seed = time24 * 30.;  // Crank up time to simulate random  // samples: 750, 1050
   float noise = fbm(vec3(xyW/(resolutionScale * vec2(300., 500.)), seed), 7);
   noise = smoothstep(0.7, 0.75, noise);
-  noise = clamp(noise, 0., 1.);  // Prevent oversaturation, also limit depth of scratches
+  noise = clamp(noise, 0., 1.);  // Prevent oversaturation
   // Texturelabs uses a second noise to create texture inside the spots, but that didn't seem necessary
-  vec3 damageRGB = toner3(vec3(0.,0.,0.), vec3(0.184, 0.765, 0.369), vec3(1.,1.,1.), noise);
+  vec3 damageRGB = toner3(vec3(0.,0.,0.), vec3(0.184, 0.765, 0.369), vec3(1.,1.,1.), noise); // light green in noise
   vec4 rv = vec4(damageRGB, smoothstep(0.,0.1,noise));
+  return rv;
+}
+
+vec3 blobs(vec2 xyW, vec2 whW, float resolutionScale) {
+  float time24 = floor(TIME * 24.);
+  float seed = time24 * 271.;  // Crank up time to simulate random  // samples: 1003
+  float noise = fbm(vec3(xyW/(resolutionScale * vec2(200., 200.)), seed), 2);
+  noise = smoothstep(0.7, 0.64, noise);  // 0.65 - 0.6 is heavy noise
+  noise = clamp(noise, 0., 1.);  // Prevent oversaturation
+  vec3 rv = toner3(vec3(0.,0.,0.), vec3(0.173, 0.373, 0.29), vec3(1.,1.,1.), noise); // dark green edges
   return rv;
 }
 
@@ -401,9 +411,11 @@ vec4 film(vec4 inPixel, vec2 xyW, vec2 whW) {
   vec3 leakRBG = leak(xyW, resolutionScale);
   vec3 scratchRBG = scratch(xyW, whW, resolutionScale);
   vec4 damageRBGA = damage(xyW, whW, resolutionScale); //return damageRBGA;
+  vec3 blobsRGB = blobs(xyW, whW, resolutionScale); //return vec4(blobsRGB, 1.);
 
   vec3 rv = blendScreen(inPixel.rgb, leakRBG);
   rv = compositeSourceAtop(damageRBGA, vec4(rv, inPixel.a)).rgb;
+  rv *= blobsRGB;
   rv *= scratchRBG;
   return vec4(rv, inPixel.a); // Don't ever turn transparent input into non-transparent output.
 }
