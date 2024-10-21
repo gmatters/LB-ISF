@@ -307,6 +307,23 @@ vec3 random3(float p) {
     p3 += dot(p3, p3.yzx + 19.19);
     return fract((p3.xxy + p3.yzz) * p3.zyx); 
 }
+
+float compositeSourceAtop(float src, float dst) {
+    return src * dst + dst * (1.0 - src);
+}
+
+vec3 compositeSourceAtop(vec3 srcColor, vec3 dstColor, float srcAlpha, float dstAlpha) {
+    return srcColor * dstAlpha + dstColor * (1.0 - srcAlpha);
+}
+
+vec4 compositeSourceAtop(vec4 srcColor, vec4 dstColor) {
+    vec4 result = vec4(0.0);
+
+    result.rgb = compositeSourceAtop(srcColor.rgb, dstColor.rgb, srcColor.a, dstColor.a);
+    result.a = compositeSourceAtop(srcColor.a, dstColor.a);
+
+    return result;
+}
 // END: lygia.xyz
 
 
@@ -338,6 +355,18 @@ vec3 scratch(vec2 xyW, vec2 whW, float resolutionScale) {
   return rv;
 }
 
+vec3 toner3(vec3 colorLow, vec3 colorMid, vec3 colorHigh, float brightness) {
+  if (brightness < 0.5) {
+    return mix(colorLow, colorMid, brightness * 2.);
+  }
+  return mix(colorMid, colorHigh, (brightness-0.5) * 2.);
+}
+
+vec3 toner3(vec3 colorLow, vec3 colorMid, vec3 colorHigh, vec3 inPixel) {
+  float brightness = (inPixel.r + inPixel.b + inPixel.g) / 3.;
+  return toner3(colorLow, colorMid, colorHigh, brightness);
+}
+
 vec3 leak(vec2 xyW, float resolutionScale) {
   // Fractal Noise
   float resolutionScale480 = resolutionScale * 1080. / 480.;  // Historical reasons
@@ -355,14 +384,28 @@ vec3 leak(vec2 xyW, float resolutionScale) {
   return rv;
 }
 
+vec4 damage(vec2 xyW, vec2 whW, float resolutionScale) {
+  float time24 = floor(TIME * 24.);
+  float seed = TIME * 30.;  // Crank up time to simulate random  // samples: 750, 1050
+  float noise = fbm(vec3(xyW/(resolutionScale * vec2(300., 500.)), seed), 7);
+  noise = smoothstep(0.7, 0.75, noise);
+  noise = clamp(noise, 0., 1.);  // Prevent oversaturation, also limit depth of scratches
+  // Texturelabs uses a second noise to create texture inside the spots, but that didn't seem necessary
+  vec3 damageRGB = toner3(vec3(0.,0.,0.), vec3(0.184, 0.765, 0.369), vec3(1.,1.,1.), noise);
+  vec4 rv = vec4(damageRGB, smoothstep(0.,0.1,noise));
+  return rv;
+}
+
 vec4 film(vec4 inPixel, vec2 xyW, vec2 whW) {
   float resolutionScale = whW.y/1080.; // Normalize vs render resolution. e.g. 4k will be 2.0
   vec3 leakRBG = leak(xyW, resolutionScale);
   vec3 scratchRBG = scratch(xyW, whW, resolutionScale);
+  vec4 damageRBGA = damage(xyW, whW, resolutionScale); //return damageRBGA;
 
   vec3 rv = blendScreen(inPixel.rgb, leakRBG);
+  rv = compositeSourceAtop(damageRBGA, vec4(rv, inPixel.a)).rgb;
   rv *= scratchRBG;
-  return vec4(rv, inPixel.a);
+  return vec4(rv, inPixel.a); // Don't ever turn transparent input into non-transparent output.
 }
 
 void main() {
