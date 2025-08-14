@@ -21,8 +21,6 @@ see also LB-TimeDub below.
 
 **LB-Palettize** allows you to specify, in the filter code, a set of 9 colors. Input colors will be posterized to the perceptually nearest palette color. There are some options to force different color mappings in order to find a useful output.
 
-**LB-Print** applies a retro printed look, with CMYK registration offset, paper texture, paper bleed, and optional jitter.
-
 ## Time
 
 **LB-PosterizeTime** reduces the frame rate by taking occasional input frames, optionally fading between them. Can make anything chill.
@@ -31,11 +29,11 @@ see also LB-TimeDub below.
 
 ## Shape
 
-**LB-Circle** Flexible circle wrap with edge blending, cropping, orientation, and scaling options.
+**LB-Circle** flexible circle wrap with edge blending, cropping, orientation, and scaling options.
 
-**LB-CircleDroste** Circular Droste effect with zoom, spin, and edge blending options. Add an LB-Circle before it for extra vertigo.
+**LB-CircleDroste** circular Droste effect with zoom, spin, and edge blending options. Add an LB-Circle before it for extra vertigo.
 
-**LB-Collide** Kaleidoscope-style radial mirror with options for sampling location, scaling, and edge blending.
+**LB-Collide** kaleidoscope-style radial mirror with options for sampling location, scaling, and edge blending.
 
 **LB-RecordLabel** turns anything into a spinning vinyl record label. 33RPM is still too fast for many things to read, so reduce to taste.
 
@@ -43,7 +41,16 @@ see also LB-TimeDub below.
 
 **LB-Graffiti** and **LB-Brush** take brush position as input and draw onto the output
 
+## Creative
+
+**LB-Print** applies a retro printed look, with CMYK registration offset, paper texture, paper bleed, and optional jitter.
+
+**LB-Collage** renders the input image as a collage of subimages
+
+
 ## Util
+
+**LB-Movement** simple way to add movement via various animation transforms and deforms.
 
 **LB-Cutout** attempts to erase the "empty" space from around a subject shot on top of a solid background. Works best when the subject is completely surrounded by background. It isn't magic, but can work well for things like simple drawings on white paper.
 
